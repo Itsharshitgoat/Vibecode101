@@ -1,0 +1,237 @@
+:root {
+    /* Color Palette */
+    --bg-color: #F5F1E8;
+    --primary-accent: #6B8E8D;
+    --secondary-accent: #D8A48F;
+    --card-bg: #FFFFFF;
+    --text-primary: #2E2E2E;
+    --text-secondary: #6D6D6D;
+    --shadow-color: rgba(0, 0, 0, 0.08);
+    --shadow-hover-color: rgba(0, 0, 0, 0.12);
+
+    /* Fonts */
+    --font-main: 'Inter', sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    font-family: var(--font-main);
+    color: var(--text-primary);
+    overflow: hidden; /* We want the board to be exactly full screen without scrolling, dragging only inside */
+    width: 100vw;
+    height: 100vh;
+
+    /* Subtle grid alignment in background */
+    background-image:
+        linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+.board-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    /* Grid layout for initial state before dragging */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-auto-rows: min-content;
+    gap: 24px;
+    padding: 40px;
+    align-items: start;
+    overflow-y: auto; /* Allow scrolling if too many items and they aren't absolutely positioned yet */
+}
+
+/* When a card is dragged, we change its position to absolute.
+   The board container needs to handle this. */
+
+.note-card {
+    background-color: var(--card-bg);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 4px 16px var(--shadow-color);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.3s ease;
+    cursor: grab;
+
+    /* Animation for appearance */
+    animation: fadeInScale 0.3s ease-out forwards;
+
+    /* Initially standard flex layout, but becomes absolute when dragged */
+    position: relative;
+    width: 280px; /* Fixed width for consistency */
+    min-height: 200px;
+
+    /* Subtle glassmorphism */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    /* No borders unless subtle */
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.note-card.dragging {
+    cursor: grabbing;
+    opacity: 0.9;
+    box-shadow: 0 12px 32px var(--shadow-hover-color);
+    transform: scale(1.02);
+    z-index: 100;
+}
+
+.note-card:hover {
+    box-shadow: 0 8px 24px var(--shadow-hover-color);
+    transform: translateY(-2px);
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.note-category-tags {
+    display: flex;
+    gap: 8px;
+}
+
+.color-tag {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.color-tag:hover {
+    transform: scale(1.2);
+}
+
+.color-tag.active {
+    border: 2px solid var(--text-primary);
+}
+
+.note-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s ease, transform 0.2s ease;
+    padding: 4px;
+    border-radius: 50%;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+    transform: scale(1.1);
+    background-color: rgba(0,0,0,0.03);
+}
+
+.note-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.note-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--font-main);
+    letter-spacing: 0.2px;
+}
+
+.note-body {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--font-main);
+    resize: none;
+    min-height: 100px;
+    line-height: 1.5;
+    letter-spacing: 0.1px;
+}
+
+/* Focus highlighting */
+.note-title:focus,
+.note-body:focus {
+    color: var(--text-primary);
+}
+
+.floating-btn {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: var(--primary-accent);
+    color: white;
+    border: none;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    z-index: 1000;
+}
+
+.floating-btn:hover {
+    transform: scale(1.05) translateY(-4px);
+    background-color: #5d7e7d; /* Slightly darker teal */
+    box-shadow: 0 12px 32px rgba(107, 142, 141, 0.3); /* Colored shadow */
+}
+
+.floating-btn:active {
+    transform: scale(0.95);
+}
+
+@keyframes fadeInScale {
+    0% {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .board-container {
+        padding: 20px;
+        grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+    }
+
+    .note-card {
+        width: 100%; /* Full width on mobile if in grid */
+    }
+
+    .floating-btn {
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+    }
+}
