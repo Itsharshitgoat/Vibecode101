@@ -111,10 +111,125 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Editing Content
         const titleInput = noteEl.querySelector('.note-title');
         const bodyInput = noteEl.querySelector('.note-body');
+        const contentContainer = noteEl.querySelector('.note-content');
 
         // Safely set values to prevent HTML injection/breaking
         titleInput.value = noteData.title || '';
         bodyInput.value = noteData.body || '';
+
+        // Handle URL previews
+        let previewEl = null;
+        let fetchTimeout = null;
+
+        const renderPreview = (previewData) => {
+            if (previewEl) {
+                previewEl.remove();
+            }
+            if (!previewData) return;
+
+            previewEl = document.createElement('a');
+            previewEl.href = previewData.url;
+            previewEl.target = '_blank';
+            previewEl.classList.add('note-preview-container');
+
+            // Prevent drag when clicking the preview link
+            previewEl.addEventListener('mousedown', (e) => e.stopPropagation());
+            previewEl.addEventListener('touchstart', (e) => e.stopPropagation());
+
+            // Build the DOM structure safely
+            if (previewData.image) {
+                const img = document.createElement('img');
+                img.src = previewData.image;
+                img.className = 'note-preview-image';
+                img.alt = 'Preview Image';
+                img.onerror = () => img.style.display = 'none';
+                previewEl.appendChild(img);
+            }
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'note-preview-content';
+
+            if (previewData.title) {
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'note-preview-title';
+                titleDiv.textContent = previewData.title;
+                contentDiv.appendChild(titleDiv);
+            }
+
+            if (previewData.description) {
+                const descDiv = document.createElement('div');
+                descDiv.className = 'note-preview-desc';
+                descDiv.textContent = previewData.description;
+                contentDiv.appendChild(descDiv);
+            }
+
+            const urlDiv = document.createElement('div');
+            urlDiv.className = 'note-preview-url';
+            urlDiv.textContent = previewData.urlHost || previewData.url;
+            contentDiv.appendChild(urlDiv);
+
+            previewEl.appendChild(contentDiv);
+            contentContainer.appendChild(previewEl);
+        };
+
+        const detectAndFetchPreview = async (text) => {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const matches = text.match(urlRegex);
+
+            if (matches && matches.length > 0) {
+                const url = matches[0]; // Just take the first URL
+
+                // If we already have this preview, don't re-fetch
+                const index = notes.findIndex(n => n.id === noteData.id);
+                if (index !== -1 && notes[index].preview && notes[index].preview.originalUrl === url) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
+                    const json = await response.json();
+
+                    if (json.status === 'success') {
+                        const data = json.data;
+                        const previewData = {
+                            originalUrl: url,
+                            url: data.url || url,
+                            urlHost: new URL(data.url || url).hostname,
+                            title: data.title,
+                            description: data.description,
+                            image: data.image ? data.image.url : (data.logo ? data.logo.url : null)
+                        };
+
+                        renderPreview(previewData);
+
+                        // Save to notes array
+                        const currIndex = notes.findIndex(n => n.id === noteData.id);
+                        if (currIndex !== -1) {
+                            notes[currIndex].preview = previewData;
+                            saveNotes();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch preview', error);
+                }
+            } else {
+                // If no URL found but we had a preview, remove it
+                if (previewEl) {
+                    previewEl.remove();
+                    previewEl = null;
+                    const index = notes.findIndex(n => n.id === noteData.id);
+                    if (index !== -1 && notes[index].preview) {
+                        delete notes[index].preview;
+                        saveNotes();
+                    }
+                }
+            }
+        };
+
+        // Render initial preview if it exists
+        if (noteData.preview) {
+            renderPreview(noteData.preview);
+        }
 
         const updateContent = () => {
             const index = notes.findIndex(n => n.id === noteData.id);
@@ -123,6 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 notes[index].body = bodyInput.value;
                 saveNotes();
             }
+
+            // Debounce the preview fetching
+            clearTimeout(fetchTimeout);
+            fetchTimeout = setTimeout(() => {
+                detectAndFetchPreview(bodyInput.value);
+            }, 1000);
         };
 
         titleInput.addEventListener('input', updateContent);
