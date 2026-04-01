@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
-    const addNoteBtn = document.getElementById('add-note-btn');
+    const fabContainer = document.getElementById('fab-container');
+    const fabMainBtn = document.getElementById('fab-main-btn');
 
     let notes = [];
     let isDragging = false;
@@ -20,8 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Add a default welcome note
             addNote({
+                type: 'text',
                 title: "Welcome to your board",
-                body: "This is a quiet space for your thoughts.\n\n- Drag anywhere\n- Click text to edit\n- Pick a subtle color",
+                body: "This is a quiet space for your thoughts.\n\n- Drag anywhere\n- Click text to edit\n- Pick a subtle color\n- Add text, links or images using the + button",
                 x: 100,
                 y: 100
             });
@@ -37,16 +39,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function addNote(customData = null) {
         const id = Date.now().toString();
         // Calculate a center-ish position or slight offset
-        const x = customData ? customData.x : window.innerWidth / 2 - 140 + (Math.random() * 40 - 20);
-        const y = customData ? customData.y : window.innerHeight / 2 - 100 + (Math.random() * 40 - 20);
+        // Spread out multiple new notes by increasing randomness slightly
+        const x = customData && customData.x !== undefined ? customData.x : window.innerWidth / 2 - 140 + (Math.random() * 100 - 50);
+        const y = customData && customData.y !== undefined ? customData.y : window.innerHeight / 2 - 100 + (Math.random() * 100 - 50);
 
         const noteData = {
             id,
-            title: customData ? customData.title : '',
-            body: customData ? customData.body : '',
+            type: customData && customData.type ? customData.type : 'text', // text, link, image
+            title: customData && customData.title ? customData.title : '',
+            body: customData && customData.body ? customData.body : '',
+            imageUrl: customData && customData.imageUrl ? customData.imageUrl : '',
             x,
             y,
-            color: customData ? customData.color : colors[0],
+            color: customData && customData.color ? customData.color : colors[0],
             zIndex: highestZIndex++
         };
 
@@ -73,6 +78,26 @@ document.addEventListener('DOMContentLoaded', () => {
             highestZIndex = noteData.zIndex + 1;
         }
 
+        let contentHTML = '';
+
+        if (noteData.type === 'text') {
+            contentHTML = `
+                <input type="text" class="note-title" placeholder="Untitled...">
+                <textarea class="note-body" placeholder="Write something..."></textarea>
+            `;
+        } else if (noteData.type === 'link') {
+            contentHTML = `
+                <input type="text" class="note-title" placeholder="Link Title (Optional)">
+                <input type="text" class="note-input-link" placeholder="Paste a URL here...">
+            `;
+        } else if (noteData.type === 'image') {
+            contentHTML = `
+                <input type="text" class="note-title" placeholder="Image Title (Optional)">
+                <input type="text" class="note-input-image" placeholder="Paste an image URL here...">
+                ${noteData.imageUrl ? `<img src="${noteData.imageUrl}" class="note-image-preview" alt="Note Image">` : ''}
+            `;
+        }
+
         // Inner HTML structure
         noteEl.innerHTML = `
             <div class="note-header">
@@ -94,8 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div class="note-content">
-                <input type="text" class="note-title" placeholder="Untitled...">
-                <textarea class="note-body" placeholder="Write something..."></textarea>
+                ${contentHTML}
             </div>
         `;
 
@@ -108,16 +132,126 @@ document.addEventListener('DOMContentLoaded', () => {
         noteEl.addEventListener('mousedown', startDrag);
         noteEl.addEventListener('touchstart', startDrag, { passive: false });
 
-        // 2. Editing Content
-        const titleInput = noteEl.querySelector('.note-title');
-        const bodyInput = noteEl.querySelector('.note-body');
+        // 2. Content logic based on type
         const contentContainer = noteEl.querySelector('.note-content');
+        const titleInput = noteEl.querySelector('.note-title');
 
-        // Safely set values to prevent HTML injection/breaking
-        titleInput.value = noteData.title || '';
-        bodyInput.value = noteData.body || '';
+        if (titleInput) {
+            titleInput.value = noteData.title || '';
+            titleInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            titleInput.addEventListener('touchstart', (e) => e.stopPropagation());
+            titleInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
+            titleInput.addEventListener('input', () => {
+                const index = notes.findIndex(n => n.id === noteData.id);
+                if (index !== -1) {
+                    notes[index].title = titleInput.value;
+                    saveNotes();
+                }
+            });
+        }
 
-        // Handle URL previews
+        if (noteData.type === 'text') {
+            const bodyInput = noteEl.querySelector('.note-body');
+            bodyInput.value = noteData.body || '';
+            bodyInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            bodyInput.addEventListener('touchstart', (e) => e.stopPropagation());
+            bodyInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
+
+            let fetchTimeout = null;
+
+            bodyInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+
+                const index = notes.findIndex(n => n.id === noteData.id);
+                if (index !== -1) {
+                    notes[index].body = bodyInput.value;
+                    saveNotes();
+                }
+
+                // Debounce preview logic
+                clearTimeout(fetchTimeout);
+                fetchTimeout = setTimeout(() => {
+                    detectAndFetchPreview(bodyInput.value);
+                }, 1000);
+            });
+
+            // Trigger initial resize
+            setTimeout(() => {
+                bodyInput.style.height = 'auto';
+                bodyInput.style.height = (bodyInput.scrollHeight) + 'px';
+                if (isNew && !noteData.title && !noteData.body) titleInput.focus();
+            }, 10);
+
+            // Re-render preview if it exists
+            if (noteData.preview) {
+                renderPreview(noteData.preview);
+            }
+
+        } else if (noteData.type === 'link') {
+            const linkInput = noteEl.querySelector('.note-input-link');
+            linkInput.value = noteData.body || '';
+            linkInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            linkInput.addEventListener('touchstart', (e) => e.stopPropagation());
+            linkInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
+
+            if (isNew) linkInput.focus();
+
+            let fetchTimeout = null;
+
+            linkInput.addEventListener('input', () => {
+                const index = notes.findIndex(n => n.id === noteData.id);
+                if (index !== -1) {
+                    notes[index].body = linkInput.value;
+                    saveNotes();
+                }
+
+                clearTimeout(fetchTimeout);
+                fetchTimeout = setTimeout(() => {
+                    detectAndFetchPreview(linkInput.value);
+                }, 1000);
+            });
+
+            if (noteData.preview) renderPreview(noteData.preview);
+
+        } else if (noteData.type === 'image') {
+            const imgInput = noteEl.querySelector('.note-input-image');
+            imgInput.value = noteData.imageUrl || '';
+            imgInput.addEventListener('mousedown', (e) => e.stopPropagation());
+            imgInput.addEventListener('touchstart', (e) => e.stopPropagation());
+            imgInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
+
+            if (isNew) imgInput.focus();
+
+            let fetchTimeout = null;
+
+            imgInput.addEventListener('input', () => {
+                clearTimeout(fetchTimeout);
+                fetchTimeout = setTimeout(() => {
+                    const url = imgInput.value.trim();
+                    const index = notes.findIndex(n => n.id === noteData.id);
+                    if (index !== -1) {
+                        notes[index].imageUrl = url;
+                        saveNotes();
+                    }
+
+                    // Remove old image if it exists
+                    const oldImg = contentContainer.querySelector('.note-image-preview');
+                    if (oldImg) oldImg.remove();
+
+                    if (url) {
+                        const newImg = document.createElement('img');
+                        newImg.src = url;
+                        newImg.className = 'note-image-preview';
+                        newImg.alt = 'Note Image';
+                        newImg.onerror = () => newImg.style.display = 'none';
+                        contentContainer.appendChild(newImg);
+                    }
+                }, 500);
+            });
+        }
+
+        // --- Common Preview Logic for Text & Link ---
         let previewEl = null;
         let fetchTimeout = null;
 
@@ -226,45 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Render initial preview if it exists
-        if (noteData.preview) {
-            renderPreview(noteData.preview);
-        }
-
-        const updateContent = () => {
-            const index = notes.findIndex(n => n.id === noteData.id);
-            if (index !== -1) {
-                notes[index].title = titleInput.value;
-                notes[index].body = bodyInput.value;
-                saveNotes();
-            }
-
-            // Debounce the preview fetching
-            clearTimeout(fetchTimeout);
-            fetchTimeout = setTimeout(() => {
-                detectAndFetchPreview(bodyInput.value);
-            }, 1000);
-        };
-
-        titleInput.addEventListener('input', updateContent);
-        bodyInput.addEventListener('input', updateContent);
-
-        // Auto-resize textarea
-        bodyInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
-
-        // Prevent dragging when interacting with inputs
-        titleInput.addEventListener('mousedown', (e) => e.stopPropagation());
-        bodyInput.addEventListener('mousedown', (e) => e.stopPropagation());
-        titleInput.addEventListener('touchstart', (e) => e.stopPropagation());
-        bodyInput.addEventListener('touchstart', (e) => e.stopPropagation());
-
-        // Focus management: when clicking an input, bring card to front
-        titleInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
-        bodyInput.addEventListener('focus', () => bringToFront(noteEl, noteData.id));
-
         // 3. Changing Color
         const colorTags = noteEl.querySelectorAll('.color-tag');
         colorTags.forEach(tag => {
@@ -300,16 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 200);
         });
 
-        // Trigger resize once for all notes
-        setTimeout(() => {
-            bodyInput.style.height = 'auto';
-            bodyInput.style.height = (bodyInput.scrollHeight) + 'px';
-
-            if (isNew && !noteData.title && !noteData.body) {
-                 // If new, focus the title
-                 titleInput.focus();
-            }
-        }, 10);
     }
 
     // Bring note to front
@@ -405,10 +490,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // Edge case: drag leaves window
     document.addEventListener('mouseleave', stopDrag);
 
-    // Add Note Button Listener
-    addNoteBtn.addEventListener('click', () => {
-        // Micro-interaction is handled by CSS active state
-        addNote();
+    // FAB Logic
+    fabMainBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fabContainer.classList.toggle('active');
+    });
+
+    // Close FAB menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!fabContainer.contains(e.target)) {
+            fabContainer.classList.remove('active');
+        }
+    });
+
+    // Add note types via FAB
+    document.getElementById('add-text-btn').addEventListener('click', () => {
+        addNote({ type: 'text' });
+        fabContainer.classList.remove('active');
+    });
+    document.getElementById('add-link-btn').addEventListener('click', () => {
+        addNote({ type: 'link' });
+        fabContainer.classList.remove('active');
+    });
+    document.getElementById('add-img-btn').addEventListener('click', () => {
+        addNote({ type: 'image' });
+        fabContainer.classList.remove('active');
     });
 
     // Initialize

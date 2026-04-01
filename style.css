@@ -238,10 +238,70 @@ body {
     margin-top: 4px;
 }
 
-.floating-btn {
+/* FAB Menu */
+.fab-container {
     position: fixed;
     bottom: 40px;
     right: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 16px;
+    z-index: 1000;
+}
+
+.fab-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fab-container.active .fab-item {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+.fab-container.active .fab-item:nth-child(1) { transition-delay: 0.1s; }
+.fab-container.active .fab-item:nth-child(2) { transition-delay: 0.05s; }
+.fab-container.active .fab-item:nth-child(3) { transition-delay: 0s; }
+
+.fab-label {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.fab-icon-container {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--card-bg);
+    color: var(--primary-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.fab-item:hover .fab-icon-container {
+    transform: scale(1.1);
+    background-color: var(--bg-color);
+}
+
+.floating-btn {
     width: 64px;
     height: 64px;
     border-radius: 50%;
@@ -253,18 +313,52 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .floating-btn:hover {
-    transform: scale(1.05) translateY(-4px);
-    background-color: #5d7e7d; /* Slightly darker teal */
-    box-shadow: 0 12px 32px rgba(107, 142, 141, 0.3); /* Colored shadow */
+    transform: scale(1.05) translateY(-2px);
+    background-color: #5d7e7d;
+    box-shadow: 0 12px 32px rgba(107, 142, 141, 0.3);
 }
 
 .floating-btn:active {
     transform: scale(0.95);
+}
+
+.fab-container.active .floating-btn {
+    transform: rotate(45deg);
+    background-color: var(--secondary-accent);
+    box-shadow: 0 8px 24px rgba(216, 164, 143, 0.4);
+}
+
+/* Specific input styles for links and images */
+.note-input-link,
+.note-input-image {
+    width: 100%;
+    padding: 12px;
+    border: 1px dashed rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.5);
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.note-input-link:focus,
+.note-input-image:focus {
+    border-color: var(--primary-accent);
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+.note-image-preview {
+    width: 100%;
+    border-radius: 8px;
+    margin-top: 8px;
+    object-fit: contain;
+    max-height: 200px;
 }
 
 @keyframes fadeInScale {
