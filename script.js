@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const fabContainer = document.getElementById('fab-container');
     const fabMainBtn = document.getElementById('fab-main-btn');
+    const themeToggleBtn = document.getElementById('theme-toggle');
 
     let notes = [];
     let isDragging = false;
@@ -9,21 +10,42 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetX, offsetY;
     let highestZIndex = 1; // To ensure the active note is always on top
 
-    // Colors derived from the minimalist mid-century palette, muted
-    const colors = ['#FFFFFF', '#FDEEEA', '#EBF1F1', '#F7F6EE', '#E8ECEE'];
+    // Theme logic
+    const applyTheme = (theme) => {
+        document.body.setAttribute('data-theme', theme);
+        localStorage.setItem('personalBoardTheme', theme);
+    };
+
+    const currentTheme = localStorage.getItem('personalBoardTheme') || 'light';
+    applyTheme(currentTheme);
+
+    themeToggleBtn.addEventListener('click', () => {
+        const newTheme = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        applyTheme(newTheme);
+    });
+
+    // Instead of hardcoded hex values, we now store the index of the color variable
+    // so it dynamically changes between light/dark themes
+    const colorIndexes = [0, 1, 2, 3, 4];
 
     // Load notes from localStorage
     function loadNotes() {
         const savedNotes = localStorage.getItem('personalBoardNotes');
         if (savedNotes) {
             notes = JSON.parse(savedNotes);
-            notes.forEach(noteData => createNoteElement(noteData, false));
+            notes.forEach(noteData => {
+                // Migration logic: if someone had old hex colors, default them to index 0
+                if (typeof noteData.color !== 'number') {
+                    noteData.color = 0;
+                }
+                createNoteElement(noteData, false);
+            });
         } else {
             // Add a default welcome note
             addNote({
                 type: 'text',
                 title: "Welcome to your board",
-                body: "This is a quiet space for your thoughts.\n\n- Drag anywhere\n- Click text to edit\n- Pick a subtle color\n- Add text, links or images using the + button",
+                body: "This is a quiet space for your thoughts.\n\n- Drag anywhere\n- Click text to edit\n- Pick a subtle color\n- Add text, links or images using the + button\n- Toggle night mode",
                 x: 100,
                 y: 100
             });
@@ -51,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
             imageUrl: customData && customData.imageUrl ? customData.imageUrl : '',
             x,
             y,
-            color: customData && customData.color ? customData.color : colors[0],
+            color: customData && customData.color !== undefined ? customData.color : colorIndexes[0],
             zIndex: highestZIndex++
         };
 
@@ -70,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noteEl.style.position = 'absolute';
         noteEl.style.left = `${noteData.x}px`;
         noteEl.style.top = `${noteData.y}px`;
-        noteEl.style.backgroundColor = noteData.color;
+        noteEl.style.backgroundColor = `var(--note-color-${noteData.color})`;
         noteEl.style.zIndex = noteData.zIndex;
 
         // Keep track of max z-index to stay on top
@@ -102,10 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
         noteEl.innerHTML = `
             <div class="note-header">
                 <div class="note-category-tags">
-                    ${colors.map(color => `
-                        <div class="color-tag ${color === noteData.color ? 'active' : ''}"
-                             style="background-color: ${color};"
-                             data-color="${color}">
+                    ${colorIndexes.map(cIdx => `
+                        <div class="color-tag ${cIdx === noteData.color ? 'active' : ''}"
+                             style="background-color: var(--note-color-${cIdx});"
+                             data-color-index="${cIdx}">
                         </div>
                     `).join('')}
                 </div>
@@ -365,8 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
         colorTags.forEach(tag => {
             tag.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const newColor = e.target.getAttribute('data-color');
-                noteEl.style.backgroundColor = newColor;
+                const newColorIdx = parseInt(e.target.getAttribute('data-color-index'), 10);
+                noteEl.style.backgroundColor = `var(--note-color-${newColorIdx})`;
 
                 // Update active class
                 colorTags.forEach(t => t.classList.remove('active'));
@@ -375,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Save
                 const index = notes.findIndex(n => n.id === noteData.id);
                 if (index !== -1) {
-                    notes[index].color = newColor;
+                    notes[index].color = newColorIdx;
                     saveNotes();
                 }
             });
