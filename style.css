@@ -82,26 +82,27 @@ body {
 /* Theme Toggle Button */
 .theme-toggle-btn {
     position: fixed;
-    top: 40px;
-    right: 40px;
-    width: 48px;
-    height: 48px;
+    top: 24px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background-color: var(--card-bg);
-    color: var(--text-primary);
-    border: none;
-    box-shadow: 0 4px 12px var(--shadow-color);
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease, background-color 0.3s ease, color 0.3s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
     z-index: 1000;
 }
 
 .theme-toggle-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--btn-hover-bg);
+    border-color: var(--border-subtle);
     transform: scale(1.05);
-    box-shadow: 0 6px 16px var(--shadow-hover-color);
 }
 
 .theme-toggle-btn:active {
